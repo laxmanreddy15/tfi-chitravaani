@@ -3,16 +3,12 @@
 import json
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
-
-from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.llms import HuggingFacePipeline
-
 from transformers import pipeline
 
-
 # -----------------------------
-# 1️⃣ Load dataset (NO jq, NO loaders)
+# 1️⃣ Load dataset
 # -----------------------------
 with open("data/movies.json", "r", encoding="utf-8") as f:
     movies = json.load(f)
@@ -27,32 +23,37 @@ for movie in movies:
         )
     )
 
-
 # -----------------------------
-# 2️⃣ Embeddings (offline)
+# 2️⃣ Embeddings (NO FAISS)
 # -----------------------------
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 # -----------------------------
-# 3️⃣ FAISS Vector Store
+# 3️⃣ Simple Retriever (IN-MEMORY)
 # -----------------------------
-vectorstore = FAISS.from_documents(documents, embeddings)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+def retrieve_docs(query: str, k=3):
+    query_embedding = embeddings.embed_query(query)
+    scored = []
+
+    for doc in documents:
+        doc_embedding = embeddings.embed_query(doc.page_content)
+        score = sum(a * b for a, b in zip(query_embedding, doc_embedding))
+        scored.append((score, doc))
+
+    scored.sort(reverse=True, key=lambda x: x[0])
+    return [doc for _, doc in scored[:k]]
 
 
 # -----------------------------
-# 4️⃣ Strict anti-hallucination prompt
+# 4️⃣ Strict Prompt
 # -----------------------------
 PROMPT = PromptTemplate.from_template(
     """
 You are a Tollywood Movie Knowledge Assistant.
 
-Answer the question ONLY using the information provided in the context below.
-Do NOT use external knowledge.
-Do NOT guess.
-
-If the answer is not present in the context, reply exactly:
+Answer ONLY using the context.
+If the answer is missing, reply exactly:
 "The requested information is not available in the provided dataset."
 
 Context:
@@ -65,9 +66,8 @@ Answer:
 """
 )
 
-
 # -----------------------------
-# 5️⃣ Local LLM (offline, hackathon-safe)
+# 5️⃣ Lightweight LLM (SAFE)
 # -----------------------------
 generator = pipeline(
     "text2text-generation", model="google/flan-t5-small", max_new_tokens=256
@@ -77,40 +77,10 @@ llm = HuggingFacePipeline(pipeline=generator)
 
 
 # -----------------------------
-# 6️⃣ Custom QA function (simple & reliable)
+# 6️⃣ QA Function
 # -----------------------------
 def qa_chain(question: str):
-    question_lower = question.lower()
-
-    # All movie names in the dataset
-    dataset_movie_names = {
-        doc.metadata.get("movie_name", "").lower()
-        for doc in retriever.vectorstore.docstore._dict.values()
-        if doc.metadata.get("movie_name")
-    }
-
-    # Try to detect if question mentions ANY movie-like word
-    mentioned_movies = [
-        movie for movie in dataset_movie_names if movie in question_lower
-    ]
-
-    # 🚫 If question contains a movie name NOT in dataset → deny
-    words = question_lower.split()
-    potential_movie_words = [w for w in words if len(w) > 3]
-
-    if not mentioned_movies:
-        # If question looks like it's asking about a movie but none match dataset
-        if any(
-            word in question_lower
-            for word in ["budget", "director", "songs", "cast", "imdb"]
-        ):
-            return {
-                "result": "The requested information is not available in the provided dataset.",
-                "source_documents": [],
-            }
-
-    # ✅ Retrieve documents
-    docs = retriever.invoke(question)
+    docs = retrieve_docs(question)
 
     if not docs:
         return {
@@ -118,11 +88,8 @@ def qa_chain(question: str):
             "source_documents": [],
         }
 
-    # Build context
     context = "\n\n".join(doc.page_content for doc in docs)
-
     prompt = PROMPT.format(context=context, question=question)
-
     answer = llm.invoke(prompt)
 
     return {"result": answer, "source_documents": docs}
