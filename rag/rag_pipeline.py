@@ -1,67 +1,45 @@
-# rag/rag_pipeline.py
-
 import json
-import numpy as np
-from sentence_transformers import SentenceTransformer, util
+from langchain_core.documents import Document
+from langchain_core.prompts import PromptTemplate
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.llms import HuggingFacePipeline
 from transformers import pipeline
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-
-# --------------------------------------------------
-# 1️⃣ Load movie dataset
-# --------------------------------------------------
+# -----------------------------
+# Load dataset
+# -----------------------------
 with open("data/movies.json", "r", encoding="utf-8") as f:
     movies = json.load(f)
 
-texts = []
-metadata = []
-
+documents = []
 for movie in movies:
-    content = "\n".join([f"{k}: {v}" for k, v in movie.items()])
-    texts.append(content)
-    metadata.append(movie.get("movie_name", "Unknown"))
+    content = "\n".join(f"{k}: {v}" for k, v in movie.items())
+    documents.append(
+        Document(
+            page_content=content,
+            metadata={"movie_name": movie.get("movie_name", "Unknown")},
+        )
+    )
 
+# -----------------------------
+# Embeddings
+# -----------------------------
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# --------------------------------------------------
-# 2️⃣ Load embedding model (safe for Streamlit)
-# --------------------------------------------------
-embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-embeddings = embedding_model.encode(texts, convert_to_tensor=True)
+doc_texts = [doc.page_content for doc in documents]
+doc_embeddings = embeddings.embed_documents(doc_texts)
 
-
-# --------------------------------------------------
-# 3️⃣ Load lightweight LLM (offline-friendly)
-# --------------------------------------------------
-generator = pipeline(
-    "text2text-generation", model="google/flan-t5-small", max_new_tokens=256
-)
-
-
-# --------------------------------------------------
-# 4️⃣ QA Function (NO hallucination)
-# --------------------------------------------------
-def qa_chain(question: str):
-    question_embedding = embedding_model.encode(question, convert_to_tensor=True)
-
-    # Compute cosine similarity
-    scores = util.cos_sim(question_embedding, embeddings)[0]
-    top_k = torch_topk(scores, k=3)
-
-    if not top_k:
-        return {
-            "result": "The requested information is not available in the provided dataset.",
-            "source_documents": [],
-        }
-
-    context = "\n\n".join(texts[i] for i in top_k)
-
-    prompt = f"""
+# -----------------------------
+# Prompt
+# -----------------------------
+PROMPT = PromptTemplate.from_template(
+    """
 You are a Tollywood Movie Knowledge Assistant.
 
 Answer ONLY using the context below.
-Do NOT guess.
-Do NOT use external knowledge.
-
-If the answer is not present, reply exactly:
+If the answer is not present, say:
 "The requested information is not available in the provided dataset."
 
 Context:
@@ -72,19 +50,33 @@ Question:
 
 Answer:
 """
+)
 
-    response = generator(prompt)[0]["generated_text"]
+# -----------------------------
+# Local LLM
+# -----------------------------
+generator = pipeline(
+    "text2text-generation", model="google/flan-t5-small", max_new_tokens=256
+)
 
-    return {
-        "result": response,
-        "source_documents": [{"movie_name": metadata[i]} for i in top_k],
-    }
+llm = HuggingFacePipeline(pipeline=generator)
 
 
-# --------------------------------------------------
-# Helper: torch-free top-k
-# --------------------------------------------------
-def torch_topk(tensor, k=3):
-    scores = tensor.cpu().numpy()
-    indices = np.argsort(scores)[-k:][::-1]
-    return indices.tolist()
+# -----------------------------
+# QA function
+# -----------------------------
+def qa_chain(question: str):
+    q_embedding = embeddings.embed_query(question)
+
+    scores = cosine_similarity([q_embedding], doc_embeddings)[0]
+
+    top_indices = np.argsort(scores)[-3:][::-1]
+    top_docs = [documents[i] for i in top_indices]
+
+    context = "\n\n".join(doc.page_content for doc in top_docs)
+
+    prompt = PROMPT.format(context=context, question=question)
+
+    answer = llm.invoke(prompt)
+
+    return {"result": answer, "source_documents": top_docs}
