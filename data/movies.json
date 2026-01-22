@@ -1,0 +1,21 @@
+[
+  {
+    "movie_name": "Baahubali: The Beginning",
+    "director": "S. S. Rajamouli",
+    "producer": "Shobu Yarlagadda, Prasad Devineni",
+    "music_director": "M. M. Keeravani",
+    "lyricist": "Madhan Karky",
+    "cast": "Prabhas, Rana Daggubati, Anushka Shetty, Tamannaah Bhatia, Sathyaraj, Nassar, Ramya Krishna",
+    "release_year": 2015,
+    "songs_list": ["Manohari", "Dheevara", "Pacha Bottasi", "Nippule Swasaga", "Oka Oori Katha"],
+    "awards": ["National Film Award for Best Feature Film", "National Film Award for Best Special Effects"],
+    "imdb_rating": 8.0,
+    "interesting_facts": "First Indian film nominated for Saturn Awards. Highest grossing Telugu film at the time.",
+    "wikipedia_links": {
+      "movie": "https://en.wikipedia.org/wiki/Baahubali:_The_Beginning",
+      "director": "https://en.wikipedia.org/wiki/S._S._Rajamouli",
+      "music_director": "https://en.wikipedia.org/wiki/M._M._Keeravani",
+      "lead_actor": "https://en.wikipedia.org/wiki/Prabhas"
+    }
+  }
+]
