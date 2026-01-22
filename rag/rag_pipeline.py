@@ -23,7 +23,7 @@ for movie in movies:
     documents.append(
         Document(
             page_content=content,
-            metadata={"movie_name": movie.get("movie_name", "Unknown")}
+            metadata={"movie_name": movie.get("movie_name", "Unknown")},
         )
     )
 
@@ -31,9 +31,7 @@ for movie in movies:
 # -----------------------------
 # 2️⃣ Embeddings (offline)
 # -----------------------------
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 # -----------------------------
@@ -72,9 +70,7 @@ Answer:
 # 5️⃣ Local LLM (offline, hackathon-safe)
 # -----------------------------
 generator = pipeline(
-    "text2text-generation",
-    model="google/flan-t5-small",
-    max_new_tokens=256
+    "text2text-generation", model="google/flan-t5-small", max_new_tokens=256
 )
 
 llm = HuggingFacePipeline(pipeline=generator)
@@ -95,8 +91,7 @@ def qa_chain(question: str):
 
     # Try to detect if question mentions ANY movie-like word
     mentioned_movies = [
-        movie for movie in dataset_movie_names
-        if movie in question_lower
+        movie for movie in dataset_movie_names if movie in question_lower
     ]
 
     # 🚫 If question contains a movie name NOT in dataset → deny
@@ -105,10 +100,13 @@ def qa_chain(question: str):
 
     if not mentioned_movies:
         # If question looks like it's asking about a movie but none match dataset
-        if any(word in question_lower for word in ["budget", "director", "songs", "cast", "imdb"]):
+        if any(
+            word in question_lower
+            for word in ["budget", "director", "songs", "cast", "imdb"]
+        ):
             return {
                 "result": "The requested information is not available in the provided dataset.",
-                "source_documents": []
+                "source_documents": [],
             }
 
     # ✅ Retrieve documents
@@ -117,20 +115,14 @@ def qa_chain(question: str):
     if not docs:
         return {
             "result": "The requested information is not available in the provided dataset.",
-            "source_documents": []
+            "source_documents": [],
         }
 
     # Build context
     context = "\n\n".join(doc.page_content for doc in docs)
 
-    prompt = PROMPT.format(
-        context=context,
-        question=question
-    )
+    prompt = PROMPT.format(context=context, question=question)
 
     answer = llm.invoke(prompt)
 
-    return {
-        "result": answer,
-        "source_documents": docs
-    }
+    return {"result": answer, "source_documents": docs}
