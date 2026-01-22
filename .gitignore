@@ -1,5 +1,82 @@
-venv/
+# =========================
+# Python
+# =========================
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+pythonenv*
+pip-log.txt
+pip-delete-this-directory.txt
+
+# =========================
+# Virtual Environments
+# =========================
+venv/
+env/
+ENV/
+.env
+.venv/
+
+# =========================
+# Streamlit
+# =========================
+.streamlit/secrets.toml
+
+# =========================
+# Build / Distribution
+# =========================
+build/
+dist/
+eggs/
+*.egg-info/
+.eggs/
+
+# =========================
+# Testing / Coverage
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# IDEs & Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS files
+# =========================
 .DS_Store
+Thumbs.db
+
+# =========================
+# Lock / Package Managers
+# =========================
+uv.lock
+poetry.lock
+Pipfile.lock
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Model / Cache files (ML)
+# =========================
+.cache/
+huggingface/
+hf_cache/
+torch_cache/
+
+# =========================
+# Local data (optional)
+# =========================
+*.sqlite
+*.db
 
