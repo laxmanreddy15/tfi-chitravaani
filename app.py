@@ -1,87 +1,58 @@
-import streamlit as st
 import os
+import streamlit as st
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-from rag.rag_pipeline import qa_chain
-
-# ---------------------------------
-# Page configuration
-# ---------------------------------
+# MUST be before any Streamlit UI calls
 st.set_page_config(page_title="TFI ChitraVaani", page_icon="🎬", layout="centered")
 
+# Environment fix (important for HuggingFace)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+# Lazy-load RAG pipeline (prevents cold-start crashes)
+@st.cache_resource
+def load_qa_chain():
+    from rag.rag_pipeline import qa_chain
+
+    return qa_chain
+
+
+qa_chain = load_qa_chain()
+
 # ---------------------------------
-# Title & description
+# UI
 # ---------------------------------
 st.markdown(
     """
-    <h1 style="text-align:center;">🎬 tfi-chitravaaani</h1>
-    <p style="text-align:center; color:gray; font-size:16px;">
-        Ask questions strictly based on a curated Tollywood movie dataset.<br>
-        ❌ No external knowledge &nbsp;•&nbsp; ✅ No hallucination
+    <h1 style="text-align:center;">🎬 TFI ChitraVaani</h1>
+    <p style="text-align:center; color:gray;">
+        Ask questions strictly based on Tollywood movie data
     </p>
     """,
     unsafe_allow_html=True,
 )
 
-st.markdown("---")
+st.markdown("### 💡 Example Questions")
 
-# ---------------------------------
-# Example questions (interactive)
-# ---------------------------------
-st.markdown("### 💡 Try these example questions")
-
-example_questions = [
+examples = [
     "Who directed Baahubali: The Beginning?",
     "List songs from Baahubali: The Beginning",
-    "Who composed the music for Baahubali: The Beginning?",
-    "What awards did Baahubali: The Beginning win?",
+    "Who composed the music for Baahubali?",
+    "What awards did Baahubali win?",
 ]
 
-cols = st.columns(2)
-for i, q in enumerate(example_questions):
-    if cols[i % 2].button(q):
+for q in examples:
+    if st.button(q):
         st.session_state["query"] = q
 
-# ---------------------------------
-# Question input
-# ---------------------------------
-query = st.text_input(
-    "🔍 Ask a question about Tollywood movies:",
-    value=st.session_state.get("query", ""),
-    placeholder="e.g., Who directed Baahubali: The Beginning?",
-)
+query = st.text_input("Ask a question:", value=st.session_state.get("query", ""))
 
-# ---------------------------------
-# Run RAG pipeline
-# ---------------------------------
 if query:
-    with st.spinner("🔎 Searching movie knowledge..."):
+    with st.spinner("Searching movie knowledge..."):
         result = qa_chain(query)
 
-    # -----------------------------
-    # Answer section
-    # -----------------------------
-    st.markdown("## 📌 Answer")
     st.success(result["result"])
 
-    # -----------------------------
-    # Source transparency
-    # -----------------------------
-    if result["source_documents"]:
-        with st.expander("📂 Source Movies Used"):
+    if result.get("source_documents"):
+        with st.expander("Sources"):
             for doc in result["source_documents"]:
-                st.write("🎞️", doc.metadata.get("movie_name", "Unknown"))
-
-# ---------------------------------
-# Footer / Trust badge
-# ---------------------------------
-st.markdown("---")
-st.markdown(
-    """
-    <div style="text-align:center; color:gray; font-size:14px;">
-        📚 Powered by a curated Tollywood movie dataset<br>
-        🛡️ Answers are generated only from available data
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+                st.write(doc.metadata.get("movie_name", "Unknown"))
