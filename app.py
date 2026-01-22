@@ -1,14 +1,13 @@
 import streamlit as st
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from rag.rag_pipeline import qa_chain
 
 # ---------------------------------
 # Page configuration
 # ---------------------------------
-st.set_page_config(
-    page_title="TFI ChitraVaani",
-    page_icon="🎬",
-    layout="centered"
-)
+st.set_page_config(page_title="TFI ChitraVaani", page_icon="🎬", layout="centered")
 
 # ---------------------------------
 # Title & description
@@ -21,7 +20,7 @@ st.markdown(
         ❌ No external knowledge &nbsp;•&nbsp; ✅ No hallucination
     </p>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 st.markdown("---")
@@ -35,7 +34,7 @@ example_questions = [
     "Who directed Baahubali: The Beginning?",
     "List songs from Baahubali: The Beginning",
     "Who composed the music for Baahubali: The Beginning?",
-    "What awards did Baahubali: The Beginning win?"
+    "What awards did Baahubali: The Beginning win?",
 ]
 
 cols = st.columns(2)
@@ -49,7 +48,7 @@ for i, q in enumerate(example_questions):
 query = st.text_input(
     "🔍 Ask a question about Tollywood movies:",
     value=st.session_state.get("query", ""),
-    placeholder="e.g., Who directed Baahubali: The Beginning?"
+    placeholder="e.g., Who directed Baahubali: The Beginning?",
 )
 
 # ---------------------------------
@@ -84,5 +83,5 @@ st.markdown(
         🛡️ Answers are generated only from available data
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
