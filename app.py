@@ -1,100 +1,79 @@
-# app.py
-import os
 import streamlit as st
+import os
 
-# ---------------------------------
-# MUST BE FIRST STREAMLIT COMMAND
-# ---------------------------------
-st.set_page_config(
-    page_title="TFI ChitraVaani",
-    page_icon="🎬",
-    layout="centered",
-)
-
-# ---------------------------------
-# Environment safety
-# ---------------------------------
+# Must be before model loads
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+from rag.rag_pipeline import qa_chain
 
-# ---------------------------------
-# Lazy-load RAG pipeline (IMPORTANT)
-# ---------------------------------
-@st.cache_resource(show_spinner=False)
-def load_qa_chain():
-    from rag.rag_pipeline import qa_chain
+# --------------------------------------------------
+# Page config (FIRST Streamlit command)
+# --------------------------------------------------
+st.set_page_config(page_title="TFI ChitraVaani", page_icon="🎬", layout="centered")
 
-    return qa_chain
-
-
-qa_chain = load_qa_chain()
-
-# ---------------------------------
+# --------------------------------------------------
 # UI Header
-# ---------------------------------
+# --------------------------------------------------
 st.markdown(
     """
     <h1 style="text-align:center;">🎬 TFI ChitraVaani</h1>
-    <p style="text-align:center; color:gray; font-size:16px;">
-        Ask questions strictly based on a curated Tollywood movie dataset.<br>
-        ❌ No external knowledge &nbsp;•&nbsp; ✅ No hallucinations
+    <p style="text-align:center; color:gray;">
+        Ask questions strictly from the Tollywood movie dataset.<br>
+        ❌ No external knowledge • ✅ No hallucinations
     </p>
     """,
     unsafe_allow_html=True,
 )
 
-st.markdown("---")
+st.divider()
 
-# ---------------------------------
-# Example questions
-# ---------------------------------
-st.markdown("### 💡 Try example questions")
+# --------------------------------------------------
+# Example Questions
+# --------------------------------------------------
+st.markdown("### 💡 Example Questions")
 
-example_questions = [
+examples = [
     "Who directed Baahubali: The Beginning?",
     "List songs from Baahubali: The Beginning",
     "Who composed the music for Baahubali: The Beginning?",
     "What awards did Baahubali: The Beginning win?",
 ]
 
-cols = st.columns(2)
-for i, q in enumerate(example_questions):
-    if cols[i % 2].button(q):
+for q in examples:
+    if st.button(q):
         st.session_state["query"] = q
 
-# ---------------------------------
-# User Input
-# ---------------------------------
+# --------------------------------------------------
+# Input
+# --------------------------------------------------
 query = st.text_input(
     "🔍 Ask a question about Tollywood movies:",
     value=st.session_state.get("query", ""),
-    placeholder="e.g., Who directed Baahubali: The Beginning?",
+    placeholder="e.g., Who directed Baahubali?",
 )
 
-# ---------------------------------
+# --------------------------------------------------
 # Run RAG
-# ---------------------------------
+# --------------------------------------------------
 if query:
     with st.spinner("🔎 Searching movie knowledge..."):
         result = qa_chain(query)
 
-    st.markdown("## 📌 Answer")
+    st.subheader("📌 Answer")
     st.success(result["result"])
 
-    if result.get("source_documents"):
+    if result["source_documents"]:
         with st.expander("📂 Source Movies Used"):
             for doc in result["source_documents"]:
-                st.write("🎞️", doc.metadata.get("movie_name", "Unknown"))
+                st.write("🎞️", doc["movie_name"])
 
-# ---------------------------------
-# Footer
-# ---------------------------------
-st.markdown("---")
+st.divider()
+
 st.markdown(
     """
     <div style="text-align:center; color:gray; font-size:14px;">
-        📚 Powered by a curated Tollywood movie dataset<br>
-        🛡️ Answers are generated only from available data
+        📚 Powered by curated Tollywood movie dataset<br>
+        🛡️ Zero-hallucination RAG system
     </div>
     """,
     unsafe_allow_html=True,
