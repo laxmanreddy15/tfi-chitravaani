@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tfi-chitravaani"
+version = "1.0.0"
+description = "TFI-ChitraVaani is a Streamlit-based RAG application for intelligent document and data querying"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "AGPL-3.0" }
+authors = [
+    { name = "Lakshman Reddy Patlolla" }
+]
+
+dependencies = [
+    "streamlit",
+    "langchain",
+    "langchain-community",
+    "langchain-huggingface",
+    "faiss-cpu",
+    "sentence-transformers"
+]
