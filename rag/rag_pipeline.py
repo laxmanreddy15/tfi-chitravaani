@@ -6,6 +6,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.llms import HuggingFacePipeline
 from transformers import pipeline
+import numpy as np
+
 
 # -----------------------------
 # 1️⃣ Load dataset
@@ -23,37 +25,38 @@ for movie in movies:
         )
     )
 
+
 # -----------------------------
-# 2️⃣ Embeddings (NO FAISS)
+# 2️⃣ Embeddings (CPU-safe)
 # -----------------------------
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
+doc_embeddings = embeddings.embed_documents([doc.page_content for doc in documents])
+doc_embeddings = np.array(doc_embeddings)
+
 
 # -----------------------------
-# 3️⃣ Simple Retriever (IN-MEMORY)
+# 3️⃣ Simple Retriever (NO FAISS)
 # -----------------------------
-def retrieve_docs(query: str, k=3):
+def retrieve_docs(query, k=3):
     query_embedding = embeddings.embed_query(query)
-    scored = []
-
-    for doc in documents:
-        doc_embedding = embeddings.embed_query(doc.page_content)
-        score = sum(a * b for a, b in zip(query_embedding, doc_embedding))
-        scored.append((score, doc))
-
-    scored.sort(reverse=True, key=lambda x: x[0])
-    return [doc for _, doc in scored[:k]]
+    scores = np.dot(doc_embeddings, query_embedding)
+    top_indices = scores.argsort()[-k:][::-1]
+    return [documents[i] for i in top_indices]
 
 
 # -----------------------------
-# 4️⃣ Strict Prompt
+# 4️⃣ Anti-hallucination Prompt
 # -----------------------------
 PROMPT = PromptTemplate.from_template(
     """
 You are a Tollywood Movie Knowledge Assistant.
 
-Answer ONLY using the context.
-If the answer is missing, reply exactly:
+Answer ONLY using the context below.
+Do NOT use external knowledge.
+Do NOT guess.
+
+If the answer is not present, reply exactly:
 "The requested information is not available in the provided dataset."
 
 Context:
@@ -66,8 +69,9 @@ Answer:
 """
 )
 
+
 # -----------------------------
-# 5️⃣ Lightweight LLM (SAFE)
+# 5️⃣ Local LLM (Streamlit-safe)
 # -----------------------------
 generator = pipeline(
     "text2text-generation", model="google/flan-t5-small", max_new_tokens=256
@@ -77,7 +81,7 @@ llm = HuggingFacePipeline(pipeline=generator)
 
 
 # -----------------------------
-# 6️⃣ QA Function
+# 6️⃣ QA Chain
 # -----------------------------
 def qa_chain(question: str):
     docs = retrieve_docs(question)
@@ -89,7 +93,9 @@ def qa_chain(question: str):
         }
 
     context = "\n\n".join(doc.page_content for doc in docs)
+
     prompt = PROMPT.format(context=context, question=question)
+
     answer = llm.invoke(prompt)
 
     return {"result": answer, "source_documents": docs}
